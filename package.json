@@ -1,0 +1,133 @@
+{
+  "name": "ripple",
+  "displayName": "Ripple",
+  "description": "See the impact of every code change before you make it",
+  "version": "1.0.0",
+  "publisher": "ripple",
+  "icon": "resources/icon.svg",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ripple.showImpact",
+        "title": "Show Impact Graph",
+        "category": "Ripple"
+      },
+      {
+        "command": "ripple.analyzeCurrentSymbol",
+        "title": "Analyze Current Symbol",
+        "category": "Ripple"
+      },
+      {
+        "command": "ripple.generateMigration",
+        "title": "Generate Migration Code",
+        "category": "Ripple"
+      },
+      {
+        "command": "ripple.showDashboard",
+        "title": "Show Impact Dashboard",
+        "category": "Ripple"
+      },
+      {
+        "command": "ripple.analyzeBranch",
+        "title": "Analyze Git Branch",
+        "category": "Ripple"
+      },
+      {
+        "command": "ripple.startTutorial",
+        "title": "Start Tutorial",
+        "category": "Ripple"
+      },
+      {
+        "command": "ripple.analyzeDependency",
+        "title": "Analyze Dependency Impact",
+        "category": "Ripple"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ripple",
+          "title": "Ripple",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ripple": [
+        {
+          "id": "rippleTree",
+          "name": "Dependency Tree"
+        },
+        {
+          "id": "rippleSummary",
+          "name": "Impact Summary"
+        },
+        {
+          "id": "rippleDashboard",
+          "name": "Impact Dashboard"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Ripple",
+      "properties": {
+        "ripple.autoAnalyze": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically analyze dependencies on file save"
+        },
+        "ripple.showTransitive": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show transitive dependencies in graph"
+        },
+        "ripple.maxDepth": {
+          "type": "number",
+          "default": 5,
+          "description": "Maximum depth for transitive dependency analysis"
+        },
+        "ripple.riskThreshold": {
+          "type": "number",
+          "default": 70,
+          "description": "Risk score threshold for warnings (0-100)"
+        },
+        "ripple.enableGitIntegration": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Git branch analysis"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "ripple.showImpact",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "typescript": "^5.0.0",
+    "simple-git": "^3.20.0"
+  }
+}
