@@ -5,6 +5,27 @@ See the impact of every code change before you make it
 Ripple is a VS Code/Cursor extension that performs real-time dependency impact analysis.
 Whenever you modify a function, class, or module, Ripple maps all downstream dependents, highlights potential breaking changes, and even suggests migration paths.
 
+## What is Ripple?
+Ripple gives you immediate feedback on how a change ripples through your codebase. It:
+- Parses your project (TypeScript/JavaScript, Python today; more languages coming)
+- Builds dependency graphs and highlights breaking changes
+- Surfaces migration suggestions and inline risk indicators
+- Stays out of your way: async, debounced, and designed for large repos
+
+## Visual identity
+- Name: Ripple — “see the impact of every code change before you make it.”
+- Icon: `resources/icon.svg` (wave mark); banner: `resources/banner.png`.
+- Palette: blues and teals; use high-contrast modes when embedding in docs.
+- Voice: concise, action-oriented, focused on impact and safety.
+
+## Quick tutorial (2 minutes)
+1) Install & open: load your repo in VS Code/Cursor with the Ripple extension enabled.
+2) Build the graph: save a file or run `Ripple: Show Impact Graph` (Ctrl+Shift+D / Cmd+Shift+D).
+3) Inspect a symbol: place cursor on a function/class → `Ripple: Analyze Current Symbol`.
+4) Review impact: see dependents in the sidebar and graph; inline highlights show affected lines.
+5) Handle risk: if breaking changes appear, open migration suggestions from the panel.
+6) Python projects: enable Python support in settings (`Ripple › Languages › Python`), set `pythonPath` if needed, and re-run analysis.
+
 ✨ Why Ripple Exists
 
 Ripple helps developers refactor confidently by providing:
