@@ -1,4 +1,4 @@
-import { Symbol } from '../parsers/parser-interface';
+import { Symbol } from '../parsers/base-parser';
 import { BreakingChange } from './impact-analyzer';
 
 export interface Impact {

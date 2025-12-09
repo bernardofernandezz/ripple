@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Symbol } from '../parsers/parser-interface';
+import { Symbol } from '../parsers/base-parser';
 import { DependencyGraphManager } from './dependency-graph';
 import { RealTimeImpactAnalyzer, EditImpact } from './real-time-impact';
 import { ImpactNotification } from '../ui/impact-notification';
@@ -46,18 +46,14 @@ export class ActiveFileTracker {
     }
 
     private async trackFile(document: vscode.TextDocument): Promise<void> {
-        // Only track TypeScript/JavaScript files
-        if (!document.fileName.match(/\.(ts|tsx|js|jsx)$/)) {
-            return;
-        }
-
-        const parser = this.graphManager.getParser();
+        const parser = await this.graphManager.getParserForFile(document.fileName);
         if (!parser) {
             return;
         }
 
         try {
-            const symbols = parser.extractSymbols(document.fileName);
+            const result = await parser.parse(document.fileName);
+            const symbols = result.symbols;
             
             this.activeFile = {
                 file: document,

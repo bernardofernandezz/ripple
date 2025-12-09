@@ -2,7 +2,7 @@
   "name": "ripple",
   "displayName": "Ripple",
   "description": "See the impact of every code change before you make it",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "ripple",
   "icon": "resources/icon.svg",
   "engines": {

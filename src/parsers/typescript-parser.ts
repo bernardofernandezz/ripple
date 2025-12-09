@@ -1,21 +1,58 @@
 import * as ts from 'typescript';
 import * as path from 'path';
 import * as fs from 'fs';
-import { Symbol, Dependency, Parameter, Parser } from './parser-interface';
+import { BaseParser, Dependency, ParseResult, Symbol, Parameter } from './base-parser';
 
-export class TypeScriptParser implements Parser {
+export class TypeScriptParser extends BaseParser {
     private program: ts.Program | null = null;
     private checker: ts.TypeChecker | null = null;
-    private workspaceRoot: string;
 
-    constructor(workspaceRoot: string) {
-        this.workspaceRoot = workspaceRoot;
+    constructor(workspaceRoot: string, config?: Partial<import('./base-parser').ParserConfig>) {
+        super(workspaceRoot, config);
         try {
             this.initializeProgram();
         } catch (error) {
             console.error('Failed to initialize TypeScript parser:', error);
-            // Continue without parser - extension can still work partially
         }
+    }
+
+    public getLanguage(): string {
+        return 'typescript';
+    }
+
+    public getSupportedExtensions(): string[] {
+        return ['.ts', '.tsx', '.js', '.jsx'];
+    }
+
+    public async parse(filePath: string, content?: string): Promise<ParseResult> {
+        const start = Date.now();
+        const parseDependencies = this.extractDependencies(filePath);
+        const parseSymbols = this.extractSymbols(filePath);
+
+        return {
+            filePath,
+            language: 'typescript',
+            symbols: parseSymbols,
+            dependencies: parseDependencies.map((dep) => ({
+                source: this.getSymbolKey(dep.from),
+                target: this.getSymbolKey(dep.to),
+                type: dep.type === 'imports' ? 'import' : dep.type === 'calls' ? 'call' : (dep.type as Dependency['type']),
+                line: dep.location.line,
+                column: dep.location.column,
+            })),
+            exports: parseSymbols.filter((s) => !s.name.startsWith('_')).map((s) => s.name),
+            imports: parseDependencies.filter((d) => d.type === 'imports').map((d) => d.to.name),
+            parseTimeMs: Date.now() - start,
+        };
+    }
+
+    public async findSymbolAtPosition(
+        filePath: string,
+        line: number,
+        column: number,
+        content?: string
+    ): Promise<Symbol | null> {
+        return this.getSymbolAtPosition(filePath, line, column);
     }
 
     private initializeProgram(): void {
@@ -95,7 +132,12 @@ export class TypeScriptParser implements Parser {
         return files;
     }
 
-    public extractDependencies(filePath: string): Dependency[] {
+    private extractDependencies(filePath: string): Array<{
+        from: Symbol;
+        to: Symbol;
+        type: 'calls' | 'imports' | 'extends' | 'implements';
+        location: { file: string; line: number; column: number };
+    }> {
         if (!this.program || !this.checker) {
             return [];
         }
@@ -105,8 +147,12 @@ export class TypeScriptParser implements Parser {
             return [];
         }
 
-        const dependencies: Dependency[] = [];
-        const symbolMap = new Map<string, Symbol>();
+        const dependencies: Array<{
+            from: Symbol;
+            to: Symbol;
+            type: 'calls' | 'imports' | 'extends' | 'implements';
+            location: { file: string; line: number; column: number };
+        }> = [];
 
         const visit = (node: ts.Node, parentSymbol: Symbol | null = null): void => {
             // Find function calls
@@ -179,7 +225,6 @@ export class TypeScriptParser implements Parser {
                 const symbol = this.getSymbolFromNode(node);
                 if (symbol) {
                     currentSymbol = symbol;
-                    symbolMap.set(this.getSymbolKey(symbol), symbol);
                 }
             }
 
@@ -285,6 +330,7 @@ export class TypeScriptParser implements Parser {
         const decl = declarations[0];
         const sourceFile = decl.getSourceFile();
         const { line, character } = sourceFile.getLineAndCharacterOfPosition(decl.getStart());
+        const endPos = sourceFile.getLineAndCharacterOfPosition(decl.getEnd());
 
         let kind: Symbol['kind'] = 'variable';
         if (ts.isFunctionDeclaration(decl) || ts.isMethodDeclaration(decl)) {
@@ -303,6 +349,11 @@ export class TypeScriptParser implements Parser {
         return {
             name: symbol.getName(),
             kind,
+            filePath: sourceFile.fileName,
+            startLine: line + 1,
+            endLine: endPos.line + 1,
+            startColumn: character + 1,
+            endColumn: endPos.character + 1,
             location: {
                 file: sourceFile.fileName,
                 line: line + 1,
@@ -382,6 +433,11 @@ export class TypeScriptParser implements Parser {
         return {
             name: symbol.getName(),
             kind: 'class',
+            filePath: sourceFile.fileName,
+            startLine: line + 1,
+            endLine: line + 1,
+            startColumn: character + 1,
+            endColumn: character + 1,
             location: {
                 file: sourceFile.fileName,
                 line: line + 1,
@@ -391,7 +447,8 @@ export class TypeScriptParser implements Parser {
     }
 
     private getSymbolKey(symbol: Symbol): string {
-        return `${symbol.location.file}:${symbol.name}:${symbol.kind}`;
+        const file = symbol.location?.file || symbol.filePath || 'unknown';
+        return `${file}:${symbol.name}:${symbol.kind}`;
     }
 
     public refresh(): void {

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Symbol } from '../parsers/parser-interface';
+import { Symbol } from '../parsers/base-parser';
 import { BreakingChange } from '../analysis/impact-analyzer';
 
 export class DecorationManager {

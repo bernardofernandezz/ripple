@@ -1,11 +1,19 @@
-import { Symbol, Dependency } from '../parsers/parser-interface';
-import { TypeScriptParser } from '../parsers/typescript-parser';
+import { Symbol, Dependency as ParsedDependency, ParseResult } from '../parsers/base-parser';
 import * as vscode from 'vscode';
+import { parserRegistry } from '../parsers/parser-registry';
+import { CacheManager } from '../utils/cache-manager';
+
+type GraphEdge = {
+    from: Symbol;
+    to: Symbol;
+    type: ParsedDependency['type'] | 'calls' | 'imports';
+    location: { file: string; line: number; column: number };
+};
 
 export class DependencyGraph {
     private nodes: Map<string, Symbol> = new Map();
-    private edges: Dependency[] = [];
-    private nodeEdges: Map<string, Dependency[]> = new Map();
+    private edges: GraphEdge[] = [];
+    private nodeEdges: Map<string, GraphEdge[]> = new Map();
 
     public addNode(symbol: Symbol): void {
         const key = this.getSymbolKey(symbol);
@@ -15,7 +23,7 @@ export class DependencyGraph {
         }
     }
 
-    public addEdge(dependency: Dependency): void {
+    public addEdge(dependency: GraphEdge): void {
         const fromKey = this.getSymbolKey(dependency.from);
         const toKey = this.getSymbolKey(dependency.to);
 
@@ -25,9 +33,10 @@ export class DependencyGraph {
 
         // Check if edge already exists
         const existingEdge = this.edges.find(
-            e => this.getSymbolKey(e.from) === fromKey && 
-                 this.getSymbolKey(e.to) === toKey &&
-                 e.type === dependency.type
+            e =>
+                this.getSymbolKey(e.from) === fromKey &&
+                this.getSymbolKey(e.to) === toKey &&
+                e.type === dependency.type
         );
 
         if (!existingEdge) {
@@ -129,7 +138,7 @@ export class DependencyGraph {
         return result;
     }
 
-    public getEdgesForSymbol(symbol: Symbol): Dependency[] {
+    public getEdgesForSymbol(symbol: Symbol): GraphEdge[] {
         const key = this.getSymbolKey(symbol);
         return this.edges.filter(
             e => this.getSymbolKey(e.from) === key || this.getSymbolKey(e.to) === key
@@ -144,12 +153,13 @@ export class DependencyGraph {
         return Array.from(this.nodes.values());
     }
 
-    public getAllEdges(): Dependency[] {
+    public getAllEdges(): GraphEdge[] {
         return [...this.edges];
     }
 
     private getSymbolKey(symbol: Symbol): string {
-        return `${symbol.location.file}:${symbol.name}:${symbol.kind}`;
+        const file = symbol.location?.file || (symbol as any).filePath || 'unknown';
+        return `${file}:${symbol.name}:${symbol.kind}`;
     }
 
     public toJSON(): any {
@@ -173,48 +183,79 @@ export class DependencyGraph {
 
 export class DependencyGraphManager {
     private graph: DependencyGraph = new DependencyGraph();
-    private parser: TypeScriptParser | null = null;
+    private cacheManager: CacheManager = new CacheManager();
 
-    constructor(private workspaceRoot: string) {
-        try {
-            this.parser = new TypeScriptParser(workspaceRoot);
-        } catch (error) {
-            console.error('Failed to initialize parser:', error);
-        }
-    }
+    constructor(private workspaceRoot: string) {}
 
     public async updateGraph(uri: vscode.Uri): Promise<void> {
-        if (!this.parser) {
+        const parser = await parserRegistry.getParserForFile(uri.fsPath);
+        if (!parser) {
+            console.warn(`No parser available for ${uri.fsPath}`);
             return;
         }
 
         try {
-            const dependencies = this.parser.extractDependencies(uri.fsPath);
-            const symbols = this.parser.extractSymbols(uri.fsPath);
+            const cached = this.cacheManager.get<ParseResult>(uri.fsPath);
+            if (cached) {
+                this.updateGraphFromParseResult(cached);
+                return;
+            }
 
-            // Add all symbols as nodes
-            symbols.forEach(symbol => {
-                this.graph.addNode(symbol);
-            });
-
-            // Add all dependencies as edges
-            dependencies.forEach(dep => {
-                this.graph.addEdge(dep);
-            });
+            const result = await parser.parse(uri.fsPath);
+            this.cacheManager.set(uri.fsPath, result);
+            this.updateGraphFromParseResult(result);
         } catch (error) {
             console.error(`Error updating graph for ${uri.fsPath}:`, error);
         }
     }
 
-    public getDependents(symbol: any): any[] {
+    private updateGraphFromParseResult(result: ParseResult): void {
+        const symbolMap = new Map<string, Symbol>();
+
+        result.symbols.forEach((symbol) => {
+            // Ensure backward compatible location
+            if (!symbol.location) {
+                symbol.location = {
+                    file: symbol.filePath,
+                    line: symbol.startLine,
+                    column: symbol.startColumn,
+                };
+            }
+            this.graph.addNode(symbol);
+            symbolMap.set(this.getSymbolKey(symbol), symbol);
+        });
+
+        result.dependencies.forEach((dep) => {
+            const from = symbolMap.get(dep.source) || symbolMap.get(this.normalizeSymbolKey(dep.source));
+            const to = symbolMap.get(dep.target) || symbolMap.get(this.normalizeSymbolKey(dep.target));
+            if (from && to) {
+                this.graph.addEdge({
+                    from,
+                    to,
+                    type: dep.type,
+                    location: {
+                        file: from.filePath || from.location?.file || result.filePath,
+                        line: dep.line || from.startLine,
+                        column: dep.column || from.startColumn,
+                    },
+                });
+            }
+        });
+    }
+
+    private normalizeSymbolKey(key: string): string {
+        return key;
+    }
+
+    public getDependents(symbol: Symbol): Symbol[] {
         return this.graph.getDependents(symbol);
     }
 
-    public getTransitiveDependents(symbol: any, maxDepth: number = 5): any[] {
+    public getTransitiveDependents(symbol: Symbol, maxDepth: number = 5): Symbol[] {
         return this.graph.getTransitiveDependents(symbol, maxDepth);
     }
 
-    public getEdgesForSymbol(symbol: any): any[] {
+    public getEdgesForSymbol(symbol: Symbol): GraphEdge[] {
         return this.graph.getEdgesForSymbol(symbol);
     }
 
@@ -222,12 +263,13 @@ export class DependencyGraphManager {
         return this.graph;
     }
 
-    public getParser(): TypeScriptParser | null {
-        return this.parser;
+    public async getParserForFile(filePath: string) {
+        return parserRegistry.getParserForFile(filePath);
     }
 
-    public getSymbolKey(symbol: any): string {
-        return `${symbol.location.file}:${symbol.name}:${symbol.kind}`;
+    public getSymbolKey(symbol: Symbol): string {
+        const file = symbol.location?.file || symbol.filePath || 'unknown';
+        return `${file}:${symbol.name}:${symbol.kind}`;
     }
 }
 

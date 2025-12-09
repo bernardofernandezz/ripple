@@ -1,27 +1,37 @@
-import { Symbol, Dependency, Parser } from './parser-interface';
+import { BaseParser, ParseResult, Symbol } from './base-parser';
 
 /**
- * Python parser implementation
- * TODO: Implement using tree-sitter-python
+ * Python parser placeholder - to be implemented with AST-based parsing.
  */
-export class PythonParser implements Parser {
-    constructor(private workspaceRoot: string) {
-        // TODO: Initialize tree-sitter parser
+export class PythonParser extends BaseParser {
+    constructor(workspaceRoot: string, config?: Partial<import('./base-parser').ParserConfig>) {
+        super(workspaceRoot, config);
     }
 
-    public extractDependencies(filePath: string): Dependency[] {
-        // TODO: Implement Python dependency extraction
-        return [];
+    public getLanguage(): string {
+        return 'python';
     }
 
-    public extractSymbols(filePath: string): Symbol[] {
-        // TODO: Implement Python symbol extraction
-        return [];
+    public getSupportedExtensions(): string[] {
+        return ['.py', '.pyw'];
     }
 
-    public getSymbolAtPosition(filePath: string, line: number, column: number): Symbol | null {
-        // TODO: Implement Python symbol lookup at position
+    public async parse(filePath: string, content?: string): Promise<ParseResult> {
+        // Placeholder implementation to keep extension functional until full parser is added.
+        return {
+            filePath,
+            language: 'python',
+            symbols: [],
+            dependencies: [],
+            exports: [],
+            imports: [],
+            parseTimeMs: 0,
+        };
+    }
+
+    public async findSymbolAtPosition(): Promise<Symbol | null> {
         return null;
     }
 }
+
 

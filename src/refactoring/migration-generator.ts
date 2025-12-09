@@ -1,5 +1,5 @@
 import { BreakingChange } from '../analysis/impact-analyzer';
-import { Symbol } from '../parsers/parser-interface';
+import { Symbol } from '../parsers/base-parser';
 
 export interface MigrationSuggestion {
     type: 'adapter' | 'update' | 'deprecation' | 'wrapper';

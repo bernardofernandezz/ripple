@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Symbol, Dependency } from '../parsers/parser-interface';
+import { Symbol } from '../parsers/base-parser';
 import { DependencyGraphManager } from './dependency-graph';
 import { ImpactAnalyzer, BreakingChange } from './impact-analyzer';
 import { ChangeDetector, CodeChange } from './change-detector';
@@ -35,7 +35,7 @@ export class RealTimeImpactAnalyzer {
         change: vscode.TextDocumentContentChangeEvent
     ): Promise<EditImpact | null> {
         try {
-            const parser = this.graphManager.getParser();
+            const parser = await this.graphManager.getParserForFile(document.fileName);
             if (!parser) {
                 return null;
             }
@@ -45,7 +45,7 @@ export class RealTimeImpactAnalyzer {
                 change.range.start.line,
                 change.range.start.character
             );
-            const symbol = parser.getSymbolAtPosition(
+            const symbol = await parser.findSymbolAtPosition(
                 document.fileName,
                 position.line + 1,
                 position.character + 1
@@ -118,13 +118,13 @@ export class RealTimeImpactAnalyzer {
         range: vscode.Range
     ): Promise<EditImpact | null> {
         try {
-            const parser = this.graphManager.getParser();
+            const parser = await this.graphManager.getParserForFile(document.fileName);
             if (!parser) {
                 return null;
             }
 
             // Get symbol at deleted location
-            const symbol = parser.getSymbolAtPosition(
+            const symbol = await parser.findSymbolAtPosition(
                 document.fileName,
                 range.start.line + 1,
                 range.start.character + 1

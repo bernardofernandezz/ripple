@@ -1,4 +1,4 @@
-import { Symbol } from '../parsers/parser-interface';
+import { Symbol } from '../parsers/base-parser';
 
 export interface CodeChange {
     symbol: Symbol;
@@ -92,7 +92,8 @@ export class ChangeDetector {
     }
 
     private getSymbolKey(symbol: Symbol): string {
-        return `${symbol.location.file}:${symbol.name}:${symbol.kind}`;
+        const file = symbol.location?.file || (symbol as any).filePath || 'unknown';
+        return `${file}:${symbol.name}:${symbol.kind}`;
     }
 }
 

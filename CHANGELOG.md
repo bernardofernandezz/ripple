@@ -2,6 +2,17 @@
 
 All notable changes to the Ripple extension will be documented in this file.
 
+## [1.1.0] - Parser Abstraction & Multi-language Foundation
+
+### Added
+- Introduced `BaseParser` abstraction and parser registry with lazy loading to enable multi-language parsing.
+- Wired extension, graph manager, and real-time features to resolve parsers per file for future Python/Go/etc. support.
+- Added placeholder Python parser registration to unblock upcoming AST implementation.
+
+### Changed
+- Refactored TypeScript parser to emit normalized symbols/dependencies aligned with the new parser contract.
+- Updated dependency graph to consume normalized parse results with caching hooks for future performance work.
+
 ## [1.0.0] - Ripple Launch
 
 ### Major Rebrand

@@ -7,6 +7,8 @@ import { DependencyTreeProvider, ImpactSummaryProvider } from './ui/tree-view-pr
 import { FileWatcher } from './utils/file-watcher';
 import { WorkspaceScanner } from './utils/workspace-scanner';
 import { TypeScriptParser } from './parsers/typescript-parser';
+import { PythonParser } from './parsers/python-parser';
+import { parserRegistry } from './parsers/parser-registry';
 import { ChangeDetector } from './analysis/change-detector';
 import { ImpactAnalyzer } from './analysis/impact-analyzer';
 import { MigrationGenerator } from './refactoring/migration-generator';
@@ -79,6 +81,10 @@ export async function activate(context: vscode.ExtensionContext) {
     try {
         console.log('🌊 Ripple: Initializing components...');
         console.log('🌊 Ripple: Workspace root:', workspaceRoot);
+
+        // Register parsers
+        parserRegistry.register(new TypeScriptParser(workspaceRoot));
+        parserRegistry.registerLazy('python', ['.py', '.pyw'], async () => new PythonParser(workspaceRoot));
         
         graphManager = new DependencyGraphManager(workspaceRoot);
         console.log('🌊 Ripple: Graph manager created');
@@ -290,12 +296,12 @@ async function buildInitialGraph(): Promise<void> {
 
 async function analyzeAtPosition(document: vscode.TextDocument, position: vscode.Position): Promise<void> {
     try {
-        const parser = graphManager.getParser();
+        const parser = await parserRegistry.getParserForFile(document.fileName);
         if (!parser) {
             return;
         }
 
-        const symbol = parser.getSymbolAtPosition(document.fileName, position.line + 1, position.character + 1);
+        const symbol = await parser.findSymbolAtPosition(document.fileName, position.line + 1, position.character + 1);
         if (symbol) {
             currentSymbol = symbol;
             await analyzeSymbol(symbol);

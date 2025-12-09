@@ -1,4 +1,4 @@
-import { Symbol } from '../parsers/parser-interface';
+import { Symbol } from '../parsers/base-parser';
 import { CodeChange } from './change-detector';
 
 export interface BreakingChange {
