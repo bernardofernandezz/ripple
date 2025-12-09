@@ -1,60 +1,85 @@
+import * as fs from 'fs';
+import { LRUCache } from './lru-cache';
+import { ParseResult } from '../parsers/base-parser';
+
+export interface CacheStats {
+    hits: number;
+    misses: number;
+    size: number;
+    hitRate: number;
+}
+
+/**
+ * Advanced cache manager with LRU, TTL, and file fingerprinting.
+ */
 export class CacheManager {
-    private cache: Map<string, { value: any; expires: number }> = new Map();
+    private memoryCache: LRUCache<string, ParseResult>;
+    private stats = { hits: 0, misses: 0 };
+    private fileFingerprints: Map<string, string> = new Map();
 
-    public get<T>(key: string): T | null {
-        const entry = this.cache.get(key);
-        if (!entry) {
-            return null;
-        }
-
-        if (Date.now() > entry.expires) {
-            this.cache.delete(key);
-            return null;
-        }
-
-        return entry.value as T;
+    constructor(options: { maxMemoryEntries?: number; ttlMs?: number } = {}) {
+        this.memoryCache = new LRUCache<string, ParseResult>({
+            maxSize: options.maxMemoryEntries ?? 1000,
+            ttlMs: options.ttlMs ?? 5 * 60 * 1000,
+        });
     }
 
-    public set(key: string, value: any, ttl: number = 300000): void {
-        const expires = Date.now() + ttl;
-        this.cache.set(key, { value, expires });
-    }
+    public async get(filePath: string): Promise<ParseResult | null> {
+        const cached = this.memoryCache.get(filePath);
+        const fingerprint = await this.computeFingerprint(filePath);
+        const cachedFingerprint = this.fileFingerprints.get(filePath);
 
-    public has(key: string): boolean {
-        const entry = this.cache.get(key);
-        if (!entry) {
-            return false;
+        if (cached && cachedFingerprint === fingerprint) {
+            this.stats.hits++;
+            return cached;
         }
 
-        if (Date.now() > entry.expires) {
-            this.cache.delete(key);
-            return false;
-        }
-
-        return true;
+        this.stats.misses++;
+        this.invalidate(filePath);
+        return null;
     }
 
-    public invalidate(pattern: string): void {
-        for (const key of this.cache.keys()) {
-            if (key.includes(pattern)) {
-                this.cache.delete(key);
+    public async set(filePath: string, result: ParseResult): Promise<void> {
+        const fingerprint = await this.computeFingerprint(filePath);
+        this.fileFingerprints.set(filePath, fingerprint);
+        this.memoryCache.set(filePath, result);
+    }
+
+    public invalidate(filePath: string): void {
+        this.memoryCache.delete(filePath);
+        this.fileFingerprints.delete(filePath);
+    }
+
+    public invalidatePattern(pattern: RegExp): void {
+        this.memoryCache.keys().forEach((key) => {
+            if (pattern.test(key)) {
+                this.invalidate(key);
             }
-        }
+        });
     }
 
     public clear(): void {
-        this.cache.clear();
+        this.memoryCache.clear();
+        this.fileFingerprints.clear();
+        this.stats = { hits: 0, misses: 0 };
     }
 
-    public size(): number {
-        // Clean expired entries first
-        const now = Date.now();
-        for (const [key, entry] of this.cache.entries()) {
-            if (now > entry.expires) {
-                this.cache.delete(key);
-            }
+    public getStats(): CacheStats {
+        const total = this.stats.hits + this.stats.misses;
+        return {
+            hits: this.stats.hits,
+            misses: this.stats.misses,
+            size: this.memoryCache.size(),
+            hitRate: total > 0 ? this.stats.hits / total : 0,
+        };
+    }
+
+    private async computeFingerprint(filePath: string): Promise<string> {
+        try {
+            const stats = await fs.promises.stat(filePath);
+            return `${stats.mtimeMs}-${stats.size}`;
+        } catch {
+            return '';
         }
-        return this.cache.size;
     }
 }
-

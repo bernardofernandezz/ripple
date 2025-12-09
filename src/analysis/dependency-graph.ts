@@ -183,9 +183,14 @@ export class DependencyGraph {
 
 export class DependencyGraphManager {
     private graph: DependencyGraph = new DependencyGraph();
-    private cacheManager: CacheManager = new CacheManager();
+    private cacheManager: CacheManager;
 
-    constructor(private workspaceRoot: string) {}
+    constructor(private workspaceRoot: string, options?: { cacheMaxEntries?: number; cacheTTL?: number }) {
+        this.cacheManager = new CacheManager({
+            maxMemoryEntries: options?.cacheMaxEntries,
+            ttlMs: options?.cacheTTL,
+        });
+    }
 
     public async updateGraph(uri: vscode.Uri): Promise<void> {
         const parser = await parserRegistry.getParserForFile(uri.fsPath);
@@ -195,14 +200,14 @@ export class DependencyGraphManager {
         }
 
         try {
-            const cached = this.cacheManager.get<ParseResult>(uri.fsPath);
+            const cached = await this.cacheManager.get(uri.fsPath);
             if (cached) {
                 this.updateGraphFromParseResult(cached);
                 return;
             }
 
             const result = await parser.parse(uri.fsPath);
-            this.cacheManager.set(uri.fsPath, result);
+            await this.cacheManager.set(uri.fsPath, result);
             this.updateGraphFromParseResult(result);
         } catch (error) {
             console.error(`Error updating graph for ${uri.fsPath}:`, error);

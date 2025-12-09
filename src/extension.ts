@@ -9,6 +9,7 @@ import { WorkspaceScanner } from './utils/workspace-scanner';
 import { TypeScriptParser } from './parsers/typescript-parser';
 import { PythonParser } from './parsers/python-parser';
 import { parserRegistry } from './parsers/parser-registry';
+import { configService } from './utils/config-service';
 import { ChangeDetector } from './analysis/change-detector';
 import { ImpactAnalyzer } from './analysis/impact-analyzer';
 import { MigrationGenerator } from './refactoring/migration-generator';
@@ -82,11 +83,26 @@ export async function activate(context: vscode.ExtensionContext) {
         console.log('🌊 Ripple: Initializing components...');
         console.log('🌊 Ripple: Workspace root:', workspaceRoot);
 
-        // Register parsers
-        parserRegistry.register(new TypeScriptParser(workspaceRoot));
-        parserRegistry.registerLazy('python', ['.py', '.pyw'], async () => new PythonParser(workspaceRoot));
-        
-        graphManager = new DependencyGraphManager(workspaceRoot);
+        // Register parsers with config
+        if (configService.isLanguageEnabled('typescript')) {
+            parserRegistry.register(new TypeScriptParser(workspaceRoot, {
+                maxFileSize: configService.getMaxFileSize(),
+            }));
+        }
+
+        if (configService.isLanguageEnabled('python')) {
+            parserRegistry.registerLazy('python', ['.py', '.pyw'], async () =>
+                new PythonParser(workspaceRoot, {
+                    maxFileSize: configService.getMaxFileSize(),
+                    customOptions: { pythonPath: configService.getPythonPath() },
+                })
+            );
+        }
+
+        graphManager = new DependencyGraphManager(workspaceRoot, {
+            cacheMaxEntries: configService.getCacheMaxEntries(),
+            cacheTTL: configService.getCacheTTL(),
+        });
         console.log('🌊 Ripple: Graph manager created');
         
         panelProvider = new GraphPanelProvider(context.extensionUri);

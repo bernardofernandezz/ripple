@@ -77,6 +77,46 @@
     "configuration": {
       "title": "Ripple",
       "properties": {
+        "ripple.languages.typescript.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable TypeScript/JavaScript parsing"
+        },
+        "ripple.languages.python.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Python parsing"
+        },
+        "ripple.languages.python.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Path to Python executable for AST parsing"
+        },
+        "ripple.performance.maxFileSize": {
+          "type": "number",
+          "default": 1048576,
+          "description": "Maximum file size to parse (bytes)"
+        },
+        "ripple.performance.workerPoolSize": {
+          "type": "number",
+          "default": 4,
+          "description": "Number of worker threads for parsing (experimental)"
+        },
+        "ripple.cache.maxMemoryEntries": {
+          "type": "number",
+          "default": 1000,
+          "description": "Maximum cached parse results in memory"
+        },
+        "ripple.cache.ttlMinutes": {
+          "type": "number",
+          "default": 5,
+          "description": "Cache TTL in minutes"
+        },
+        "ripple.experimental.enableWorkerPool": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use worker threads for parsing (experimental)"
+        },
         "ripple.autoAnalyze": {
           "type": "boolean",
           "default": true,
